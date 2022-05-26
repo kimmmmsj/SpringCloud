@@ -39,12 +39,14 @@ public class WebSecurity extends WebSecurityConfigurerAdapter {
     }
 
     private Filter getAuthenticationFilter() throws Exception {
-        AuthenticationFilter authenticationFilter = new AuthenticationFilter();
-        authenticationFilter.setAuthenticationManager(authenticationManager());
+        AuthenticationFilter authenticationFilter = new AuthenticationFilter(authenticationManager(), userService, env);
+        //authenticationFilter.setAuthenticationManager(authenticationManager());
 
         return authenticationFilter;
     }
 
+    // select pwd from users where email = ?
+    // db_password(encrypted) == input_password(encrypted)
     @Override
     protected void configure(AuthenticationManagerBuilder auth) throws Exception {
         auth.userDetailsService(userService).passwordEncoder(bCryptPasswordEncoder);
