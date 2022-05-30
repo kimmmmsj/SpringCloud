@@ -13,8 +13,8 @@ spring:
   datasource:
     driver-class-name: org.h2.Driver
     url: jdbc:h2:mem:testdb
-#      username: sa
-#      password: 1234
+#   username: sa
+#   password: 1234
 
 eureka:
   instance:
@@ -31,3 +31,7 @@ greeting:
 logging:
   level:
     com.example.userservice: DEBUG
+
+token:
+  expiration_time: 486400000
+  secret: user_token
