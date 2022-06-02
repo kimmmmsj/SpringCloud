@@ -11,3 +11,9 @@ spring:
           uri: https://github.com/kimmmmsj/SpringCloud
           username: kimmmmsj
           password: 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
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
