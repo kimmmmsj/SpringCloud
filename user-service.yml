@@ -5,7 +5,7 @@ spring:
     username: sa
     password: '{cipher}9975771f77d82619a0dd9da906b74a800727732ac1d6454b67035d1c981653c1'
 
-token:
+token:  
   expiration_time: 86400000
   secret: user_token_default
 
