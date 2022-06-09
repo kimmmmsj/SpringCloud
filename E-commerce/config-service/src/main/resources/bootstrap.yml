@@ -1,6 +1,6 @@
 encrypt:
 #  key: abcdefghijklmnopqrstuvwxyz0123456789
   key-store:
-    location: https://github.com/kimmmmsj/SpringCloud/tree/main/E-commerce/config-service/src/main/resources/keystore
+    location: file://${user.home}/Documents/Work/keystore/apiEncryptionKey.jks
     password: test1234
     alias: apiEncryptionKey
