@@ -1,2 +1,5 @@
 encrypt:
-  key: abcdefghijklmnopqrstuvwxyz0123456789
+#  key: abcdefghijklmnopqrstuvwxyz0123456789
+  key-store:
+    location: https://github.com/kimmmmsj/SpringCloud
+    password:
