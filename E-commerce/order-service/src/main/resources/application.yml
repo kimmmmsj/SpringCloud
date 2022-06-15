@@ -14,10 +14,6 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
-    generate-ddl: true
-    database: h2
-    defer-datasource-initialization: true
   datasource:
     driver-class-name: org.h2.Driver
     url: jdbc:h2:mem:testdb
