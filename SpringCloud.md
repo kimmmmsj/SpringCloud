@@ -1371,3 +1371,1213 @@ public class HelloController {
 __전체 애플리케이션 개요__
 
 ![](/images/39.PNG)
+
+__3.6번사진__
+
+## User Service 프로젝트 생성
+
+__주노 사진__
+
+* 프로젝트 생성 후 @EnableDiscoveryClient를 통해 Eureka Client로 등록시켜준다.
+
+```java
+@SpringBootApplication
+@EnableDiscoveryClient
+public class UserServiceApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(UserServiceApplication.class, args);
+    }
+
+}
+```
+
+<br>
+
+* application.yml 파일로 변경 후 다음과 같이 설정해준다.
+
+```yml
+server:
+  port: 0 #랜덤으로 포트 설정
+
+spring:
+  application:
+    name: user-service  #Eureka에 등록되는 서비스 이름
+eureka:
+  instance:
+    instance-id: ${spring.application.name}:${spring.application.instance_id:${random.value}}  #포트가 중복으로 설정되어 구분하기 위한 인스턴스 아이디 값 설정
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: http://127.0.0.1:8761/eureka
+```
+
+#### Health Check Controler 생성
+
+* 서비스 상태 체크를 위해 -> /health_check url을 만들자.
+```java
+@RestController
+@RequestMapping("/")
+public class UserController {
+
+    @GetMapping("/health_check")
+    public String status(){
+        return "It's Working in User Service";
+    }
+}
+```
+
+<br>
+
+* 다음과 같이 서비스를 실행하여 Eureka에서 서비스를 확인할 수 있다.
+
+__4.11사진 추가__
+
+<br>
+
+* application.yml 파일에 greeting 문구를 추가해보자.
+
+* 1) Environment 사용
+
+사진
+
+<br>
+
+* 2) @Value 사용
+
+사진
+
+<br>
+
+#### H2 연동
+
+* 자바로 작성된 오픈소스 RDBMS
+* Embedded, Server-Client 가능
+* JPA 연동 가능
+
+```yml
+h2의 정책 변경으로 1.3.176으로 진행하면 빠르게 진행 가능하다.
+이후 버전은 보안 문제로 자동으로 데이터베이스를 생성하지 않는다.
+```
+
+* Dependency 추가
+
+사진
+
+<br>
+
+```yml
+server:
+  port: 0 #랜덤으로 포트 설정
+
+spring:
+  application:
+    name: user-service  #Eureka에 등록되는 서비스 이름
+  h2:
+    console:
+      enabled: true
+      settings:
+        web-allow-others: true
+      path: /h2-console
+...
+```
+
+<br>
+<br>
+
+## User Microservice - 회원가입
+
+<br>
+
+* RequestVo 생성
+
+```java
+@Data
+public class RequestUser {
+    @NotNull(message = "Email cannot be null")
+    @Size(min = 2, message = "Email not be less than two characters")
+    @Email
+    private String email;
+    @NotNull(message = "Name cannot be null")
+    @Size(min = 2, message = "Name not be less than two characters")
+    private String name;
+    @NotNull(message =  "Pwd cannot be null")
+    @Size(min = 8, message = "Pwd not be less than two characters")
+    private String pwd;
+}
+```
+
+<br>
+
+* UserDto 생성
+
+```java
+@Data
+public class UserDto {
+    private String email;
+    private String name;
+    private String pwd;
+    private String userId;
+    private LocalDateTime createAt;
+    private String encryptedPwd;
+}
+```
+
+<br>
+
+* UserService 생성(인터페이스)
+
+```java
+public interface UserService {
+    UserDto createUser(UserDto userDto);
+}
+```
+
+<br>
+
+* UserServiceImpl 생성(구현체)
+
+```java
+@Service
+@RequiredArgsConstructor
+public class UserServiceImpl implements UserService{
+    private final UserRepository userRepository;
+
+    @Override
+    public UserDto createUser(UserDto userDto) {
+        userDto.setUserId(UUID.randomUUID().toString());
+
+        ModelMapper mapper = new ModelMapper();
+        mapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
+        UserEntity userEntity = mapper.map(userDto, UserEntity.class);
+        userEntity.setEncryptedPwd("encryptedPwd");
+
+        UserEntity save = userRepository.save(userEntity);
+        return null;
+    }
+}
+```
+
+<br>
+
+* UserEntity 생성
+
+```java
+@Data
+@Entity
+@Table(name = "users")
+public class UserEntity {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false, length = 50, unique = true)
+    private String email;
+    @Column(nullable = false, length = 50)
+    private String name;
+    @Column(nullable = false, unique = true)
+    private String userId;
+    @Column(nullable = false, length = 50)
+    private String encryptedPwd;
+}
+```
+
+```java
+public interface UserRepository extends CrudRepository<UserEntity, Long> {
+}
+```
+
+* ModelMapper를 위한 pom.xml에 추가
+
+```xml
+<dependency>
+    <groupId>org.modelmapper</groupId>
+    <artifactId>modelmapper</artifactId>
+    <version>2.3.8</version>
+</dependency>
+```
+
+<br>
+
+* UserController 수정
+
+```java
+@RestController
+@RequestMapping("/")
+@RequiredArgsConstructor
+public class UserController {
+
+    private final Environment env;
+    private final Greeting greeting;
+    private final UserService userService;
+
+    ...
+
+    @PostMapping("/users")
+    public String createUser(@RequestBody RequestUser user){
+        ModelMapper mapper = new ModelMapper();
+        mapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
+        UserDto userDto = mapper.map(user, UserDto.class);
+        userService.createUser(userDto);
+        return "Create User!";
+    }
+}
+```
+
+<br>
+
+* application.yml 수정
+
+```yml
+...
+spring:
+  application:
+    name: user-service  #Eureka에 등록되는 서비스 이름
+  h2:
+    console:
+      enabled: true
+      settings:
+        web-allow-others: true
+      path: /h2-console
+  datasource:
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:mem:testdb
+    username: sa
+    password:
+...
+```
+
+<br>
+
+* 테스트
+
+<br>
+
+* 현재는, 실제로 데이터를 전송하면 `Create User!`라는 String만을 반환한다.
+
+## 그러나!! API 반환은 ResponseEntity 형태로 하자!
+
+* 또한 무언가를 생성하는 API는 200번 성공코드보단 201번 코드를 보내주는 것이 더 올바른 방법이다.
+
+```java
+@RestController
+@RequestMapping("/")
+@RequiredArgsConstructor
+public class UserController {
+    ...
+
+    @PostMapping("/users")
+    public ResponseEntity createUser(@RequestBody RequestUser user){
+        ModelMapper mapper = new ModelMapper();
+        mapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
+        UserDto userDto = mapper.map(user, UserDto.class);
+        userService.createUser(userDto);
+        return ResponseEntity.status(HttpStatus.CREATED).body(null);
+    }
+}
+```
+
+테스트 사진
+
+<br>
+
+### 좀 더 REST API답게 수정해보자.
+
+* ResponseUser 생성
+
+```java
+@Data
+public class ResponseUser {
+    private String email;
+    private String name;
+    private String userId;
+}
+```
+
+<br>
+
+* Service 수정
+
+```java
+public interface UserService {
+    ResponseUser createUser(UserDto userDto);
+}
+```
+
+```java
+@Service
+@RequiredArgsConstructor
+public class UserServiceImpl implements UserService{
+    private final UserRepository userRepository;
+
+    @Override
+    public ResponseUser createUser(UserDto userDto) {
+        userDto.setUserId(UUID.randomUUID().toString());
+
+        ModelMapper mapper = new ModelMapper();
+        mapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
+        UserEntity userEntity = mapper.map(userDto, UserEntity.class);
+        userEntity.setEncryptedPwd("encryptedPwd");
+
+        UserEntity save = userRepository.save(userEntity);
+        ResponseUser responseUser = mapper.map(save, ResponseUser.class);
+
+        return responseUser;
+    }
+}
+```
+
+<br>
+
+* Controller 수정
+
+```java
+@RestController
+@RequestMapping("/")
+@RequiredArgsConstructor
+public class UserController {
+
+    ...
+
+    @PostMapping("/users")
+    public ResponseEntity createUser(@RequestBody RequestUser user){
+        ModelMapper mapper = new ModelMapper();
+        mapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
+        UserDto userDto = mapper.map(user, UserDto.class);
+        ResponseUser responseUser = userService.createUser(userDto);
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(responseUser);
+    }
+}
+```
+
+<br>
+
+* 위와 같이 수정하면 아래와 같이 return 하는 데이터들과 201번 코드를 확인할 수 있다.
+
+주노 사진
+
+<br>
+<br>
+
+## Spring Security 추가
+
+<br>
+
+* security를 위한 pon.xml에 Dependency 추가
+
+```java
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-security</artifactId>
+</dependency>
+```
+
+<br>
+
+* Security 추가를 위해 WebSecurity클래스 생성 후
+
+```java
+@Configuration  //다른 bean들 보다 우선순위를 앞으로
+@EnableWebSecurity  //security 어노테이션
+public class WebSecurity extends WebSecurityConfigurerAdapter {
+
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        http.csrf().disable();
+        http.authorizeRequests().antMatchers("/users/**").permitAll();
+
+        http.headers().frameOptions().disable();    //h2 console error 해결을 위해
+    }
+}
+```
+
+<br>
+
+* 서버를 실행시키는 Application 파일에 bean으로 등록할 passwordEncoder를 설정해주자.
+
+```java
+@SpringBootApplication
+@EnableDiscoveryClient
+public class UserServiceApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(UserServiceApplication.class, args);
+    }
+
+    //password encode를 사용을 위해 bean으로 등록
+    @Bean
+    public BCryptPasswordEncoder passwordEncoder(){
+        return new BCryptPasswordEncoder();
+    }
+}
+```
+
+<br>
+
+* UserServiceImpl 수정
+
+```java
+@Service
+@RequiredArgsConstructor
+public class UserServiceImpl implements UserService{
+    private final UserRepository userRepository;
+    private final BCryptPasswordEncoder pwdEncoder;
+    @Override
+    public ResponseUser createUser(UserDto userDto) {
+        userDto.setUserId(UUID.randomUUID().toString());
+
+        ModelMapper mapper = new ModelMapper();
+        mapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
+        UserEntity userEntity = mapper.map(userDto, UserEntity.class);
+        userEntity.setEncryptedPwd(pwdEncoder.encode(userDto.getPwd()));
+
+        UserEntity save = userRepository.save(userEntity);
+        ResponseUser responseUser = mapper.map(save, ResponseUser.class);
+
+        return responseUser;
+    }
+}
+```
+
+<br>
+
+* UserEntity 수정
+  * 비밀번호를 암호화 했을 경우 50자리가 넘어서 SQL Error가 발생하여 100자리로 늘려주었다.
+
+```java
+@Data
+@Entity
+@Table(name = "users")
+public class UserEntity {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false, length = 50, unique = true)
+    private String email;
+    @Column(nullable = false, length = 50)
+    private String name;
+    @Column(nullable = false, unique = true)
+    private String userId;
+    @Column(nullable = false, length = 100)
+    private String encryptedPwd;
+}
+```
+
+<br>
+
+* 아래와 같이 비밀번호가 암호화되어 저장된 것을 확인할 수 있다.
+
+주노 사진
+
+<br>
+<br>
+
+
+## Catalog Service
+
+* Project 생성후, pom.xml에 추가
+
+```xml
+<dependency>
+    <groupId>com.h2database</groupId>
+    <artifactId>h2</artifactId>
+    <version>1.3.176</version>
+    <scope>runtime</scope>
+</dependency>
+<dependency>
+    <groupId>org.modelmapper</groupId>
+    <artifactId>modelmapper</artifactId>
+    <version>2.3.8</version>
+</dependency>
+```
+
+<br>
+
+* application.yml 추가
+
+```yml
+server:
+  port: 0 #랜덤으로 포트 설정
+
+spring:
+  application:
+    name: catalog-service  #Eureka에 등록되는 서비스 이름
+  h2:
+    console:
+      enabled: true
+      settings:
+        web-allow-others: true
+      path: /h2-console
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    generate-ddl: true
+    database: h2
+    defer-datasource-initialization: true
+  datasource:
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:mem:testdb
+
+eureka:
+  instance:
+    instance-id: ${spring.application.name}:${spring.application.instance_id:${random.value}}  #포트가 중복으로 설정되어 구분하기 위한 인스턴스 아이디 값 설정
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: http://127.0.0.1:8761/eureka
+```
+
+<br>
+
+* 초기 데이터 SQL 추가 (서버 재기동시 자동으로 데이터 들어가게..) -> data.sql
+
+```sql
+insert into catalog(product_id, product_name, stock, unit_price)
+values('CTALOG-001', '상품명1', 100, 1500);
+insert into catalog(product_id, product_name, stock, unit_price)
+values('CTALOG-002', '상품명2', 200, 2000);
+insert into catalog(product_id, product_name, stock, unit_price)
+values('CTALOG-003', '상품명3', 300, 2300);
+```
+
+<br>
+
+* CatalogEntity 추가
+
+```java
+@Data
+@Entity
+@Table(name = "catalog")
+public class CatalogEntity implements Serializable {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    @Column(name = "product_id", nullable = false, length = 120, unique = true)
+    private String productId;
+    @Column(name = "product_name", nullable = false)
+    private String productName;
+    @Column(nullable = false)
+    private Integer stock;
+    @Column(nullable = false)
+    private Integer unitPrice;
+    @Column(nullable = false, updatable = false, insertable = false)
+    @ColumnDefault(value = "CURRENT_TIMESTAMP")
+    private LocalDateTime createAt;
+}
+```
+
+<br>
+
+* CatalogRepository 추가
+
+```java
+public interface CatalogRepository extends CrudRepository<CatalogEntity, Long> {
+    CatalogEntity findByProductId(String productId);
+}
+```
+
+<br>
+
+* ResponseCatalog 추가
+
+```java
+@Data
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class ResponseCatalog {
+    private String productId;
+    private String productName;
+    private Integer unitPrice;
+    private Integer stock;
+    private LocalDateTime createAt;
+}
+```
+
+<br>
+
+* CatalogService / CatalogServiceImple 추가
+
+```java
+public interface CatalogService {
+    Iterable<CatalogEntity> getAllCatalogs();
+}
+```
+
+```java
+@Service
+@RequiredArgsConstructor
+public class CatalogServiceImpl implements CatalogService{
+    private final CatalogRepository catalogRepository;
+
+    @Override
+    public Iterable<CatalogEntity> getAllCatalogs() {
+        return catalogRepository.findAll();
+    }
+}
+```
+
+<br>
+
+* CatalogController 추가
+
+```java
+@RestController
+@RequestMapping("/catalog-service")
+@RequiredArgsConstructor
+public class CatalogController {
+
+    private final Environment env;
+    private final CatalogService catalogService;
+
+    @GetMapping("/health_check")
+    public String status(){
+        return String.format("It's Working in User Service on Port %s",env.getProperty("local.server.port"));
+    }
+
+    @GetMapping("/catalogs")
+    public ResponseEntity<List<ResponseCatalog>> getUsers(){
+        Iterable<CatalogEntity> userList = catalogService.getAllCatalogs();
+        List<ResponseCatalog> result = new ArrayList<>();
+        userList.forEach(v -> {
+            result.add(new ModelMapper().map(v,ResponseCatalog.class));
+        });
+
+        return ResponseEntity.ok().body(result);
+    }
+}
+```
+
+* API Gateway yml 수정
+
+```yml
+...
+
+spring:
+  application:  #gateway service 이름
+    name: apigateway-service
+  cloud:
+    gateway:  #gateway 설정
+      default-filters:
+        - name : GlobalFilter #Global Filter로 지정된 java 파일 이름
+          args:
+            baseMessage: Spring Cloud Gateway Global Filter
+            preLogger: true
+            postLogger: true
+      routes:
+        - id: user-service
+          uri: lb://USER-SERVICE
+          predicates:
+            - Path=/user-service/**
+          filters:
+            - CustomFilter
+        - id: catalog-service
+          uri: lb://CATALOG-SERVICE
+          predicates:
+            - Path=/catalog-service/**
+          filters:
+            - CustomFilter
+```
+
+<br>
+
+* 결과
+
+주노 사진
+
+<br>
+<br>
+
+## Order Service
+
+* pom.xml은 이전의 Catalog Service와 우선 동일하게 만들어주자.
+
+<br>
+
+* application.yml 파일 설정
+
+```yml
+server:
+  port: 0 #랜덤으로 포트 설정
+
+spring:
+  application:
+    name: order-service  #Eureka에 등록되는 서비스 이름
+  h2:
+    console:
+      enabled: true
+      settings:
+        web-allow-others: true
+      path: /h2-console
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    generate-ddl: true
+  datasource:
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:mem:testdb
+
+eureka:
+  instance:
+    instance-id: ${spring.application.name}:${spring.application.instance_id:${random.value}}  #포트가 중복으로 설정되어 구분하기 위한 인스턴스 아이디 값 설정
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: http://127.0.0.1:8761/eureka
+```
+
+<br>
+
+* OrderEntity 생성
+
+```java
+@Data
+@Entity
+@Table(name = "orders")
+public class OrderEntity implements Serializable {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false)
+    private String productId;
+    @Column(nullable = false)
+    private Integer qty;
+    @Column(nullable = false)
+    private Integer unitPrice;
+    @Column(nullable = false)
+    private Integer totalPrice;
+    @Column(nullable = false)
+    private String userId;
+    @Column(nullable = false, unique = true)
+    private String orderId;
+
+    @ColumnDefault(value = "CURRENT_TIMESTAMP")
+    private LocalDateTime createAt;
+}
+```
+
+<br>
+
+* OrderRepository 생성
+
+```java
+public interface OrderRepository extends CrudRepository<OrderEntity, Long> {
+    OrderEntity findByOrderId(String orderId);
+    Iterable<OrderEntity> findByUserId(String userId);
+}
+```
+
+<br>
+
+* OrderDto 생성
+
+```java
+@Data
+public class OrderDto {
+    private String productId;
+    private Integer qty;
+    private Integer unitPrice;
+    private Integer totalPrice;
+
+    private String orderId;
+    private String userId;
+}
+```
+
+<br>
+
+* ResponseOrder 생성
+
+```java
+@Data
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class ResponseOrder {
+    private String productId;
+    private Integer qty;
+    private Integer unitPrice;
+    private Integer totalPrice;
+    private LocalDateTime createAt;
+    private String orderId;
+}
+```
+
+<br>
+
+* OrderService / OrderServiceImple 생성
+
+```java
+public interface OrderService {
+    OrderDto createOrder(OrderDto orderDto);
+    OrderDto getOrderByOrderId(String orderId);
+    Iterable<OrderEntity> getOrderByUserId(String userId);
+}
+```
+
+```java
+@Service
+@RequiredArgsConstructor
+public class OrderServiceImpl implements OrderService{
+    private final OrderRepository orderRepository;
+
+    @Override
+    public OrderDto createOrder(OrderDto orderDto) {
+        orderDto.setOrderId(UUID.randomUUID().toString());
+        orderDto.setTotalPrice(orderDto.getQty()*orderDto.getUnitPrice());
+
+        ModelMapper map = new ModelMapper();
+        map.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
+        OrderEntity orderEntity = map.map(orderDto, OrderEntity.class);
+
+        orderRepository.save(orderEntity);
+
+        OrderDto returnValue = map.map(orderEntity, OrderDto.class);
+
+        return returnValue;
+    }
+
+    @Override
+    public OrderDto getOrderByOrderId(String orderId) {
+        OrderEntity orderEntity = orderRepository.findByOrderId(orderId);
+        OrderDto orderDto = new ModelMapper().map(orderEntity, OrderDto.class);
+        return orderDto;
+    }
+
+    @Override
+    public Iterable<OrderEntity> getOrderByUserId(String userId) {
+        return orderRepository.findByUserId(userId);
+    }
+}
+```
+
+<br>
+
+* RequestOrder 생성
+
+```java
+@Data
+public class RequestOrder {
+    private String productId;
+    private Integer qty;
+    private Integer unitPrice;
+}
+```
+
+<br>
+
+* OrderController 생성
+
+```java
+@RestController
+@RequestMapping("/order-service")
+@RequiredArgsConstructor
+public class OrderController {
+    private final Environment env;
+    private final OrderService orderService;
+
+    @GetMapping("/health_check")
+    public String status(){
+        return String.format("It's Working in User Service on Port %s",env.getProperty("local.server.port"));
+    }
+
+    @PostMapping("/{userId}/orders")
+    public ResponseEntity<ResponseOrder> createOrder(@PathVariable("userId") String userId, @RequestBody RequestOrder requestOrder){
+        ModelMapper mapper = new ModelMapper();
+        mapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
+
+        OrderDto orderDto = mapper.map(requestOrder, OrderDto.class);
+        orderDto.setUserId(userId);
+        OrderDto createOrder = orderService.createOrder(orderDto);
+        ResponseOrder responseOrder = mapper.map(createOrder, ResponseOrder.class);
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(responseOrder);
+    }
+
+    @GetMapping("/{userId}/orders")
+    public ResponseEntity<List<ResponseOrder>> getOrder(@PathVariable("userId") String userId, @RequestBody RequestOrder requestOrder){
+        Iterable<OrderEntity> orderList = orderService.getOrderByUserId(userId);
+        List<ResponseOrder> result = new ArrayList<>();
+
+        orderList.forEach(v -> {
+            result.add(new ModelMapper().map(v, ResponseOrder.class));
+        });
+
+        return ResponseEntity.ok().body(result);
+    }
+}
+```
+
+<br>
+
+* API Gateway 설정 수정
+  * 마지막에 order-service를 추가해주자.
+```yml
+server:
+  port: 8000
+
+eureka: #eureka 세팅은 현재 사용 안함
+  client:
+    fetch-registry: true
+    register-with-eureka: true
+    service-url:
+      defaultZone: http://127.0.0.1:8761/eureka
+
+spring:
+  application:  #gateway service 이름
+    name: apigateway-service
+  cloud:
+    gateway:  #gateway 설정
+      default-filters:
+        - name : GlobalFilter #Global Filter로 지정된 java 파일 이름
+          args:
+            baseMessage: Spring Cloud Gateway Global Filter
+            preLogger: true
+            postLogger: true
+      routes:
+        - id: user-service
+          uri: lb://USER-SERVICE
+          predicates:
+            - Path=/user-service/**
+        - id: catalog-service
+          uri: lb://CATALOG-SERVICE
+          predicates:
+            - Path=/catalog-service/**
+        - id: order-service
+          uri: lb://ORDER-SERVICE
+          predicates:
+            - Path=/order-service/**
+```
+
+<br>
+
+* Eureka 서버는 아래와 같이 기동되며
+
+주노 사진
+
+<br>
+
+* 정상적으로 주문이 요청되며
+
+주노 사진
+
+<br>
+
+* 특정 유저의 주문목록 조회가 가능해졌다.
+
+주노 사진
+
+<br>
+<br>
+
+## 인증과 권한 1 - Security 설정 ( User Service )
+
+* RequestLogin 생성 (Login 데이터 모델 생성)
+
+```java
+@Data
+public class RequestLogin {
+
+    @Email
+    @NotNull(message = "Email cannot be null")
+    @Size(min = 2, message = "Email not be less than 2 characters")
+    private String email;
+
+    @NotNull(message = "Password cannot be null")
+    @Size(min = 8, message = "Password not be less than 8 characters")
+    private String pwd;
+}
+```
+
+<br>
+
+* UsernamePasswordAuthenticationFilter를 상속받는 AuthenticationFilter라는 클래스 생성
+  * security의 UsernamePasswordAuthenticationFilter를 구현하여 로그인 요청을 보냈을 때와 로그인을 성공했을 때 로직을 정의한다.
+
+```java
+public class AuthenticationFilter extends UsernamePasswordAuthenticationFilter {
+
+    //로그인 요청을 보냈을 때 로직
+    @Override
+    public Authentication attemptAuthentication(HttpServletRequest request,
+                                                HttpServletResponse response) throws AuthenticationException {
+        try {
+            RequestLogin creds = new ObjectMapper().readValue(request.getInputStream(), RequestLogin.class);
+
+            //인증정보 생성
+            return getAuthenticationManager()
+                    .authenticate(
+                            new UsernamePasswordAuthenticationToken(
+                                    creds.getEmail(),       //id
+                                    creds.getPassword(),    //pw
+                                    new ArrayList<>()       //권한 정보
+                            )
+                    );
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+    }
+
+    //로그인 성공했을 때 로직
+    @Override
+    protected void successfulAuthentication(HttpServletRequest request, HttpServletResponse response, FilterChain chain,
+                                            Authentication authResult) throws IOException, ServletException {
+        
+    }
+}
+```
+
+<br>
+
+* Security 설정 변경
+  * 기존의 모두 permit()해주던 코드인데, filter를 통해 거르도록 설정을 변경해주었다.
+  * 여기서 중요한 것은 마지막 인증 코드인데, UserDetailsService를 상속받은 userService가 필요하다.
+
+```java
+@Configuration  //다른 bean들 보다 우선순위를 앞으로
+@EnableWebSecurity  //security 어노테이션
+@RequiredArgsConstructor
+public class WebSecurity extends WebSecurityConfigurerAdapter {
+
+    private final UserService userService;
+    private final BCryptPasswordEncoder passwordEncoder;
+    private final Environment env;
+
+    //권한
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        http.csrf().disable();
+        //http.authorizeRequests().antMatchers("/users/**").permitAll();    //기존 모두 ok
+        http.authorizeRequests().antMatchers("/**")
+            .permitAll()
+            .and()
+            .addFilter(getAuthenticationFilter());
+
+        http.headers().frameOptions().disable();    //h2 console error 해결을 위해
+    }
+
+    private AuthenticationFilter getAuthenticationFilter() throws Exception {
+        AuthenticationFilter authenticationFilter = new AuthenticationFilter();
+        authenticationFilter.setAuthenticationManager(authenticationManager()); //spring security에서 제공하는 manager 객체
+
+        return authenticationFilter;
+    }
+
+    //인증
+    @Override
+    protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+        auth.userDetailsService(userService).passwordEncoder(passwordEncoder);   //사용자가 전달한 id와 pw를 통해 로그인 처리를 security가 해줌
+    }
+}
+```
+
+<br>
+
+* Userservice / UserServiceImple 변경
+  * 내가 지정한 email 로그인 방식에 따라 email로 회원을 검색한 후, User 객체를 반환받도록 코드를 작성하였다.
+
+```java
+public interface UserService extends UserDetailsService {
+    ResponseUser createUser(UserDto userDto);
+    UserDto getUserByUserId(String userId);
+    Iterable<UserEntity> getUserByAll();
+}
+```
+
+```java
+@Service
+@RequiredArgsConstructor
+public class UserServiceImpl implements UserService{
+    ...
+    
+    @Override
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        UserEntity userEntity = userRepository.findByEmail(username);
+
+        if(userEntity == null) throw new UsernameNotFoundException("user가 존재하지 않습니다.");
+
+        return new User(userEntity.getEmail(), userEntity.getEncryptedPwd(), true, true, true, true, new ArrayList<>());
+    }
+}
+```
+
+<br>
+
+__API Gateway 설정 변경__
+
+* 기존의 설정을 주석처리하고, user-service를 다음과 같이 세분화하여 설정해준다. 그리고 UserController도 아래와 같이 수정해주자.
+
+```yml
+...
+
+#        - id: user-service
+#          uri: lb://USER-SERVICE
+#          predicates:
+#            - Path=/user-service/**
+        - id: user-service
+          uri: lb://USER-SERVICE
+          predicates:
+           - Path=/user-service/login
+           - Method=POST
+          filters:
+            - RemoveRequestHeader=Cookie
+            - RewritePath=/user-service(?<segment>.*), /$\{segment}
+        - id: user-service
+          uri: lb://USER-SERVICE
+          predicates:
+            - Path=/user-service/users
+            - Method=POST
+          filters:
+            - RemoveRequestHeader=Cookie
+            - RewritePath=/user-service(?<segment>.*), /$\{segment}
+        - id: user-service
+          uri: lb://USER-SERVICE
+          predicates:
+            - Path=/user-service/**
+            - Method=GET
+          filters:
+            - RemoveRequestHeader=Cookie
+            - RewritePath=/user-service(?<segment>.*), /$\{segment}
+...
+```
+
+```java
+@RequestMapping("/")
+```
+
+<br>
+
+* 테스트
+  * 아래 사진과 같이 정상적으로 요청된 결과를 받을 수 있고
+
+주노 사진
+
+<br>
+
+* 테스트
+  * security에서 기본 제공되는 login을 통해 POST 요청시 정상 반환되는 것을 확인할 수 있다.
+
+주노 사진
+
+<br>
+<br>
+
+## 인증과 권한 2 - Security 동작 구조 ( User Service )
+
+* 위 `인증과 권한 1`에서 security를 설정하고 이메일/비밀번호로 인증이 되는 것을 확인했다.
+* 그러나, security가 자동으로 처리하는 탓에 어떻게 돌아가는지 정확한 구조를 확인해보지 못했기에
+* 이번에 디버그 모드로 실행하여 break point를 찍어서 동작을 확인해보자.
+
+```xml
+cf. 서버를 재기동한다면 User의 정보가 날라가므로 `회원가입`부터 다시 진행하자. 
+```
+
+<br>
+
+* 디버그 Break Point 찍기
+
