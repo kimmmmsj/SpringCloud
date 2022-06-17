@@ -2971,3 +2971,187 @@ token:
 
 ##### 실제 테스트 해보기!
 
+* 로그인하여 발급 받은 토큰이 없을때 health-check를 실행시켜보자.
+
+사진
+
+<br>
+
+* 이제 GET user-service/** 에서는 token 없이 접근할 경우 401에러가 뜬다.
+  * 회원가입을 통해 발급 받은 token을 사용하여 다시 요청해보자.
+* 발급 받은 token 정보를 입력한 뒤 요청하면 다음과 같이 정상적으로 처리됨을 확인할 수 잇다. 
+
+사진
+
+<br>
+
+* 그럼 해당 로직이 어떻게 진행되는지 확인해보자.
+* api-gateway-service에 작성한 AuthorizationHeaderFilter의 apply()에 요청이 들어오고
+
+사진
+
+<br>
+
+* 요청한 Header에 Authorization : value가 존재하는지 확인을 먼저 해준다.
+* Bearer type으로 요청했기 때문에 value에 Bearer + toekn으로 값이 넘어오는데 해당 값을 replace()로 처리해주고 isJwtValid()를 통해 유효성을 체크한다.
+
+사진
+
+<br>
+
+* 넘어온 값은 JWT를 통해 parse해주고 해당 subject를 확인하면 토큰값이 들어있는데 이 값은 내가 token을 만들때 사용했던 userId값이다.
+  * 정말 그런지 확인을 하기위해, login 했을 때 반환된 값을 보면 내가 반환 받은 값과 동일한 값을 확인할 수 있다.
+
+사진
+
+<br>
+
+* 정상적으로 token 정보를 넘긴 반환값을 받을 수 있다.
+
+사진
+
+<br>
+<br>
+
+## Spring Config 1 - Service 적용 ( config-service )
+
+
+#### Spring Config란?
+* Spring Config는 MSA구조에서 여러 서비스들의 설정 값을 하나의 서버에 등록해두고 여러 서버에서 해당 서버에 설정된 값을 가져와서 사용할 수 있도록 사용할 수 있게 해주는 기술이다.
+
+<br>
+<br>
+
+* ecommerce.yml 파일 ( Git에 올릴 파일)
+
+```yml
+token:
+  expiration_time: 86400000
+  secret: user_token
+```
+
+<br>
+
+* yml 파일 하나를 생성하고 git으로 관리할 수 있도록 commit 단계까지만 진행해두자.
+
+사진
+
+<br>
+
+* config-service 프로젝스 생성하고 실행되는 Application 파일에 다음과 같이 선언하여 Config Server로써 사용하자.
+
+```java
+@SpringBootApplication
+@EnableConfigServer
+public class ConfigServiceApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(ConfigServiceApplication.class, args);
+    }
+
+}
+```
+
+<br>
+
+* 그 후에 application.yml 파일에 다음과 같이 설정해주자.
+
+```yml
+server:
+  port: 8888
+
+spring:
+  application:
+    name: config-service
+  cloud:
+    config:
+      server:
+        git:
+          uri: file://{폴더경로} #ex)  file://C:/2022/msa-config
+```
+
+<<나중에 바꾸기>>
+
+<br>
+
+* 그 후에 서버를 실행한 뒤
+* http://localhost:8888/ecommerce/default 접속하게 되면
+* 다음과 같이 json 타입으로 반환 받는 정보들을 확인할 수 있다.
+* 우리가 설정한 token의 정보를 모두 가져오는 것을 확인할 수 있다.
+
+```json
+{
+  "name":"ecommerce",
+  "profiles":["default"],
+  "label":null,
+  "version":"e5dca17738bdd67f25a91f6da83aa254d90f6b7a",
+  "state":null,
+  "propertySources":[
+    {
+      "name":"file://C:/2022/msa-config/file:C:\\2022\\msa-config\\ecommerce.yml",
+      "source":{"token.expiration_time":86400000,"token.secret":"user_token"}
+    }
+  ]
+}
+```
+
+<br>
+
+#### User Service 설정 변경
+
+* 기존 application.yml 파일에서 token에 대한 설정을 주석처리하자
+
+```yml
+...
+
+#token:
+#  expiration_time: 86400000 #ms단위
+#  secret: user_token
+```
+
+<br>
+
+* pom.xml에서 의존성을 추가해주자.
+
+```xml
+<dependency>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-starter-config</artifactId>
+</dependency>
+<dependency>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-starter-bootstrap</artifactId>
+</dependency>
+```
+
+<br>
+
+* 그리고 application.yml 파일과 동일한 위치인 resources 폴더 아래에 bootstrap.yml 파일을 생성한 후 내가 실행한 서버의 uri와 접근할 name을 적어준다.(ecommerce)
+
+```yml
+spring:
+  cloud:
+    config:
+      uri: http://127.0.0.1:8888
+      name: ecommerce
+```
+
+<br>
+
+* 그 후에 controller에서 health_check의 내용을 다음과 같이 수정하여 실제 config 정보를 불러오는지 확인해보자.
+
+```java
+@GetMapping("/health_check")
+public String status(){
+    return String.format("It's Working in User Service"
+            + ", port(local.server.port) = " + env.getProperty("local.server.port")
+            + ", port(server.port) = " + env.getProperty("server.port")
+            + ", token secret = " + env.getProperty("token.secret")
+            + ", token expiration time = " + env.getProperty("token.expiration_time")
+    );
+}
+```
+<br>
+
+* health_check 서비스를 실행하면 다음과 같이 로그를 확인할 수 있다.
+* 로그의 내용은 
