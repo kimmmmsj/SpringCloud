@@ -2580,4 +2580,394 @@ cf. 서버를 재기동한다면 User의 정보가 날라가므로 `회원가입
 <br>
 
 * 디버그 Break Point 찍기
+  * AuthenticationFilter 파일에서 두개의 Break Point를 찍었다. attemptAuthentication 인증 요청시 요청이 되는지, successfulAuthentication 로그인 성공시 로그가 찍히는지 확인을 하기 위해 찍었다.
+
+주노 사진
+
+<br>
+
+* UserServiceImpl에서 loadUserByUsername에도 찍었다. 인증 요청 성공시 데이터를 가져오는데 이 로직을 통해 가져오는지 확인해보자.
+
+주노 사진
+
+<br>
+
+### 실제 디버그 확인
+
+* postman을 통해 login을 실행하면
+
+##### 1) 인증 요청
+ 
+* 가장 먼저 인증 요청 부분인 AuthenticationFilter의 attemptAuthentication로 실행이 된다. 동작 순서를 살펴보면 가장 먼저 읽어온 request를 통해 RequestLogin 객체를 만들고 해당 객체를 UsernamePasswordAuthenticationToken을 통해 token값으로 변경하여 전달한다.
+
+주노 사진
+
+<br>
+
+* 정상적으로 로그인 성공 시 UserServiceImpl의 loadUserByUsername를 실행하여 실제 유저가 존재하는지 확인을 한번 더 하고 User객체를 반환한다.
+
+주노 사진
+
+<br>
+
+* 그 후 AuthenticationFilter의 successfulAuthentication이 실행되며 로그가 찍히고 종료되는데 성공 후에 나는 JWT가 발급되도록 변경하려한다!
+
+주노 사진
+
+##### 2) 아이디를 틀리게 적은 경우
+
+* 아래 사진과 같이 아이디를 틀리게 적으면
+
+주노 사진
+
+<br>
+
+* security에서 제공하는 AbstractDetailsAuthenticationProvider의 authenticatte 메서드에서 인증 절차가 실행되는데 retrieveUser 메서드를 통해 제공받은 userName의 값과 토큰 값을 전달한다.
+
+사진
+
+<br>
+
+* 그럼 아이디 값을 통해 UserService에서 검색해보고 당연히 아이디가 존재하지 않기 때문에 Exception이 발생한다.
+
+사진
+
+<br>
+
+* 이러면 이전에 실행했던 retrieveUser의 catch에 걸리게 되고 UsernameNotFoundException이 걸린다.
+
+ㅈ주사진
+
+<br>
+
+* authenticate 에서도 catch에 걸리게 되고 디버그로 로그를 찍고 BadCredentialsException 예외를 생성하여
+
+주노사진
+
+<br>
+
+* 그 후에는 AuthenticationException을 ProviderManager의 authenticate 메서드에서 던지게 된다. 그리고 계속 filter를 타고 처리가 되어지는데
+* 결국 마지막엔 401코드 Unauthorized를 띄운다.
+
+<br>
+
+##### 3) 비밀번호를 틀리게 적은 경우
+
+* 이번엔 비밀번호를 틀리게 적어보자.
+
+주노 사진
+
+<br>
+
+* 여기까지는 동일하게 진행되며
+
+주노 사진
+
+<br>
+
+* 이번엔 아이디가 존재하기 때문에 User 객체를 정상적으로 반환한다.
+
+주노 사진
+
+<br>
+
+* 그 때문에 loadedUser에도 null이 아닌 값이 들어가 있고
+
+주노 사진
+
+<br>
+
+* 정상적으로 계속 진행된다.
+
+주노 사진
+
+<br>
+
+* 하지만 additionalAuthenticationChecks 이 메서드를 진행할때
+
+주노 사진
+
+<br>
+
+* security에서 제공하는 DaoAuthenticationProvider와 additionalAuthenticationChecks에서 다음과 같이 복호화하여 실제 user객체에 담긴 비밀번호와 같은지 확인 작업을 거치게 되어, 비밀번호가 다르므로 디버그 로그를 찍고 BadCredentialsException 예외를 발생시킨다.
+
+주노 사진
+
+<br>
+
+* 그렇기 때문에 위와 마찬가지로 401코드가 반환되는 것을 확인할 수 있다.
+
+주노 사진
+
+<br>
+<br>
+
+## 인증과 권환 3 - JWT 추가
+
+##### UserDto 반환받기(AuthenticationFilter 클래스에서)
+
+* 기존 log만 찍었던 로직을 아래와 같이 입력받은 email값으로 userId를 받아올 수 있도록 변경한다.
+* 그러나 여기서 getUserDetailsByEmail()은 정의되어있지 않기 때문에 에러가 난다. 또한, 생성자에 UserService와 Environment값을 매개변수로 설정했기 때문에 WebSecurity에서 생성자로 Filter를 생성하는 부분에도 값을 넣어줘야한다.
+
+```java
+@Slf4j
+@RequiredArgsConstructor
+public class AuthenticationFilter extends UsernamePasswordAuthenticationFilter {
+    private final UserService userService;
+    private final Environment env;
+
+    ...
+
+    //로그인 성공했을 때 로직
+    @Override
+    protected void successfulAuthentication(HttpServletRequest request, HttpServletResponse response, FilterChain chain,
+                                            Authentication authResult) throws IOException, ServletException {
+        String userEmail = ((User)authResult.getPrincipal()).getUsername();
+        UserDto userDto = userService.getUserDetailsByEmail(userEmail);
+    }
+}
+```
+
+<br>
+
+* WebSecurity 클래스의 매개변수에 userService와 env를 넣어준다.
+
+```java
+@Configuration  //다른 bean들 보다 우선순위를 앞으로
+@EnableWebSecurity  //security 어노테이션
+@RequiredArgsConstructor
+public class WebSecurity extends WebSecurityConfigurerAdapter {
+
+    private final UserService userService;
+    private final BCryptPasswordEncoder passwordEncoder;
+    private final Environment env;
+    ...
+
+    private AuthenticationFilter getAuthenticationFilter() throws Exception {
+        AuthenticationFilter authenticationFilter = new AuthenticationFilter(userService, env);
+        authenticationFilter.setAuthenticationManager(authenticationManager()); //spring security에서 제공하는 manager 객체
+
+        return authenticationFilter;
+    }
+
+    
+}
+```
+
+<br>
+
+* 그리고 UserDto를 반환하도록 다음과 같이 코드를 작성한 뒤, 다시 로그인 처리를 해보면 정상적으로 처리되는 것을 확인할 수 있다.
+
+```java
+@Service
+@RequiredArgsConstructor
+public class UserServiceImpl implements UserService{
+    ...
+    
+    @Override
+    public UserDto getUserDetailsByEmail(String userEmail) {
+        UserEntity userEntity = userRepository.findByEmail(userEmail);
+        //if(userEntity == null) throw new UsernameNotFoundException("user email 값이 유효하지 않습니다.");
+        return new ModelMapper().map(userEntity, UserDto.class);
+    }
+}
+```
+
+사진
+
+
+<br>
+
+##### JWT 추가
+
+* pom.xml에 jwt를 추가해주자.
+
+```xml
+<dependency>
+    <groupId>io.jsonwebtoken</groupId>
+    <artifactId>jjwt</artifactId>
+    <version>0.9.1</version>
+</dependency>
+```
+
+<br>
+
+* application.yml에 미리 사용할 token 설정값을 미리 지정해주자.
+
+```yml
+...
+
+token:
+  expiration_time: 86400000 #ms단위
+  secret: user_token
+```
+
+<br>
+
+* AuthenticationFilter에 token 로직을 추가하여 다음과 같이 헤더에 token 정보를 추가해서 반환하게 하자.
+
+```java
+@Slf4j
+@RequiredArgsConstructor
+public class AuthenticationFilter extends UsernamePasswordAuthenticationFilter {
+    private final UserService userService;
+    private final Environment env;
+	
+    ...
+
+    //로그인 성공했을 때 로직
+    @Override
+    protected void successfulAuthentication(HttpServletRequest request, HttpServletResponse response, FilterChain chain,
+                                            Authentication authResult) throws IOException, ServletException {
+        String userEmail = ((User)authResult.getPrincipal()).getUsername();
+        UserDto userDto = userService.getUserDetailsByEmail(userEmail);
+
+        String token = Jwts.builder()
+                .setSubject(userDto.getUserId())    //token 내용
+                .setExpiration(new Date(System.currentTimeMillis() + Long.parseLong(env.getProperty("token.expiration_time")))) //파기 날짜
+                .signWith(SignatureAlgorithm.HS512, env.getProperty("token.secret"))    //token 생성 알고리즘과 키 값
+                .compact();
+
+        response.setHeader("token", token);
+        response.setHeader("userId", userDto.getUserId());  //원래는 반환하지 않는 데이터이지만 확인용
+    }
+}
+```
+
+사진
+
+<br>
+
+* 반환되는 값의 header 정보에도 token과 userId가 반환되는 것을 확인할 수 있다.
+
+사진
+
+<br>
+<br>
+
+## 인증과 권한 4 - Gateway Filter 설정 ( apigateway-service )
+
+* pom.xml에 JWT 설정을 추가해주쟈.
+
+```xml
+<dependency>
+    <groupId>io.jsonwebtoken</groupId>
+    <artifactId>jjwt</artifactId>
+    <version>0.9.1</version>
+</dependency>
+<dependency>
+    <groupId>javax.xml.bind</groupId>
+    <artifactId>jaxb-api</artifactId>
+    <version>2.1</version>
+</dependency>
+```
+
+<br>
+
+* AuthorizationHeaderFilter 클래스를 만들어서 아래와 같이 코딩하자. 여기서 token secret 값은 application.yml에 아직 등록을 안했기 때문에 같이 해주자. 
+
+```java
+@Component
+@Slf4j
+public class AuthorizationHeaderFilter extends AbstractGatewayFilterFactory<AuthorizationHeaderFilter.Config> {
+    private Environment env;
+
+    //생성시 Config class를 상속받은 Factory로 넘겨줘야해서 lombok을 사용하지 않고 다음과 같이 처리
+    public AuthorizationHeaderFilter(Environment env) {
+        super(Config.class);
+        this.env = env;
+    }
+
+    public static class Config{
+
+    }
+
+    @Override
+    public GatewayFilter apply(Config config) {
+        return ((exchange, chain) -> {
+            ServerHttpRequest request = exchange.getRequest();
+
+            //header에 HttpHeaders.AUTHORIZATION 값이 존재하는지 확인
+            if(!request.getHeaders().containsKey(HttpHeaders.AUTHORIZATION)){
+                return onError(exchange, "no authorization header", HttpStatus.UNAUTHORIZED);
+            }
+
+            String authorizationHeader = request.getHeaders().get(org.springframework.http.HttpHeaders.AUTHORIZATION).get(0);
+            String jwt = authorizationHeader.replace("Bearer", "");
+
+            if(!isJwtValid(jwt)){
+                return onError(exchange, "JWT Token is not valid", HttpStatus.UNAUTHORIZED);
+            }
+
+            return chain.filter(exchange);
+        });
+    }
+
+    //token이 유효한지 확인
+    private boolean isJwtValid(String jwt) {
+        boolean returnValue = true;
+
+        String subject = null;
+        try {
+            subject = Jwts.parser().setSigningKey(env.getProperty("token.secret"))  //secret key 값을 통해 parse
+                    .parseClaimsJws(jwt).getBody()  //token의 내용을 가져옴
+                    .getSubject();
+        }catch (Exception e){
+            returnValue = false;
+        }
+
+        if(subject == null || subject.equals("")){
+            returnValue = false;
+        }
+        return returnValue;
+    }
+
+    //에러 발생시 에러 값을 response
+    //Mono, Flux -> Spring WebFlux 개념 / 데이터 단위 단일=Mono, 복수=Flux
+    private Mono<Void> onError(ServerWebExchange exchange, String err, HttpStatus httpStatus) {
+        ServerHttpResponse response = exchange.getResponse();
+        response.setStatusCode(httpStatus);
+
+        log.error(err);
+        return response.setComplete();  //Mono 데이터 return
+    }
+}
+```
+
+* 또한 아래 yml 파일에서 user-service에서 AuthorizationHeaderFilter 필터를 더 추가해주자.
+```yml
+...
+
+spring:
+  application:  #gateway service 이름
+    name: apigateway-service
+  cloud:
+    gateway:  #gateway 설정
+      default-filters:
+        - name : GlobalFilter #Global Filter로 지정된 java 파일 이름
+          args:
+            baseMessage: Spring Cloud Gateway Global Filter
+            preLogger: true
+            postLogger: true
+      routes:
+#        ...
+        - id: user-service
+          uri: lb://USER-SERVICE
+          predicates:
+            - Path=/user-service/**
+            - Method=GET
+          filters:
+            - RemoveRequestHeader=Cookie
+            - RewritePath=/user-service(?<segment>.*), /$\{segment}
+            - AuthorizationHeaderFilter
+        ...
+
+token:
+  expiration_time: 86400000
+  secret: user_token
+```
+
+<br>
+
+##### 실제 테스트 해보기!
 
