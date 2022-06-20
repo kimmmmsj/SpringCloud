@@ -3645,3 +3645,238 @@ order_service:
 
 * 위의 방법을 따라해보면 yml 설정 내용에 url의 실제 서버의 ip가 변경될 때마다 변경해주어야하는 단점을 가지고 있다. 이 점을 `서비스명`으로 사용해도 정상 작동되도록 해보자!
 
+<br>
+
+* user-service.yml 의 정보를 다음과 같이 변경해주고
+
+```yml
+order_service:
+  url: http://ORDER-SERVICE/order-service/%s/orders
+  #url: http://127.0.0.1:8000/order-service/%s/orders
+```
+
+<br>
+
+* 기존에 사용하고 있던 user-service의 application 클래스에서 RestTemplate에 @LoadBalanced만 추가해주면 된다.
+
+```java
+@SpringBootApplication
+@EnableDiscoveryClient
+public class UserServiceApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(UserServiceApplication.class, args);
+    }
+
+    //password encode를 사용을 위해 bean으로 등록
+    @Bean
+    public BCryptPasswordEncoder passwordEncoder(){
+        return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    @LoadBalanced
+    public RestTemplate getRestTemplate(){
+        return new RestTemplate();
+    }
+}
+```
+
+* 결과가 동일하게 잘 나온다!!
+
+<br>
+<br>
+
+## Microservice 통신 - 2 ( FeignClient )
+
+### FeignClient란?
+
+* FeignClient는 Rest Call을 추상화한 Spring Cloud Netflix 라이브러리로 이전에 학습한 RestTemplate보다 훨씬 직관적이고 사용하기도 쉽다.
+
+<br>
+
+#### FeignClient 설정 ( user-service )
+
+* pom.xml에서 의존성을 추가해주자.
+
+```xml
+<dependency>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-starter-openfeign</artifactId>
+</dependency>
+```
+
+<br>
+
+* application 클래스에서 @EnableFeignClients를 추가해주자.
+
+```java
+@SpringBootApplication
+@EnableDiscoveryClient
+@EnableFeignClients	//FeignClient 추가
+public class UserServiceApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(UserServiceApplication.class, args);
+    }
+	...
+    
+//    @Bean
+//    @LoadBalanced
+//    public RestTemplate getRestTemplate(){
+//        return new RestTemplate();
+//    }
+}
+```
+
+<br>
+
+* 그 후에 OrderServiceClient라는 interface를 하나 추가한 뒤 아래와 같이 설정해주자.
+* @FeignClient의 name옵션은 microservice-name을 의미하며 @GetMapping("/order-service/{userId}/orders")은 요청하는 url값을 의미한다.
+
+```java
+@FeignClient(name = "order-service")    //microservice name
+public interface OrderServiceClient {
+
+    @GetMapping("/order-service/{userId}/orders")
+    List<ResponseOrder> getOrders(@PathVariable String userId);
+}
+```
+
+<br>
+
+* 그 다음으로는 이전에 RestTemplate를 대신하여 FeignClient를 사용하여 코드를 작성해보았다. 이전의 방법보다 코드가 더 직관적이고 보기 좋다.
+
+```java
+@Service
+@RequiredArgsConstructor
+public class UserServiceImpl implements UserService{
+    private final UserRepository userRepository;
+    private final BCryptPasswordEncoder pwdEncoder;
+    //private final RestTemplate restTemplate;
+    private final OrderServiceClient orderServiceClient;    //FeignClient의 interface 받기
+    private final Environment env;
+    
+    ...
+    
+    @Override
+    public UserDto getUserByUserId(String userId) {
+        UserEntity userEntity = userRepository.findByUserId(userId);
+        if(userEntity == null) throw new UsernameNotFoundException("user name not found!");
+        UserDto userDto = new ModelMapper().map(userEntity, UserDto.class);
+//        List<ResponseOrder> orderList = new ArrayList<>();    //이전에 빈 배열을 반환하던 값
+
+        /* Using as RestTemplate */
+//        String orderUrl = String.format(env.getProperty("order_service.url"), userId);
+//        ResponseEntity<List<ResponseOrder>> orderListResponse =
+//                restTemplate.exchange(orderUrl, HttpMethod.GET, null, new ParameterizedTypeReference<List<ResponseOrder>>() {
+//                });
+//        List<ResponseOrder> orderList = orderListResponse.getBody();
+
+        /* Using as FeignClient */
+        List<ResponseOrder> orderList = orderServiceClient.getOrders(userId);
+
+        userDto.setOrders(orderList);
+
+        return userDto;
+    }
+
+}
+```
+
+<br>
+
+* 실행해보면 RestTemplate와 동일한 결과를 가져오는 것을 확인할 수 있다.
+
+사진
+
+<br>
+
+#### FeignClient Log 찍어보기
+* 물론 user-service에서..
+
+<br>
+
+* application.yml에 추가해주자
+
+```yml
+logging:
+  level:
+    com.example.userservice.client: debug
+```
+
+<br>
+
+* Logger.Level을 반환하는 bean을 등록할건데 여기서 Logger.Level은 feign.Logger로 추가되어야한다
+
+```java
+@SpringBootApplication
+@EnableDiscoveryClient
+@EnableFeignClients
+public class UserServiceApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(UserServiceApplication.class, args);
+    }
+	
+    ...
+
+    @Bean
+    public Logger.Level feignLoggerLevel(){
+        return Logger.Level.FULL;
+    }
+}
+```
+
+<br>
+
+* 그 후에 실행하면 다음과 같이 Debug로 찍혀나오는 로그들을 확인할 수 있다.
+
+사진
+
+<br>
+
+#### FeignClient 예외처리
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
