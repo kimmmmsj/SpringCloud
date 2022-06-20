@@ -3595,3 +3595,53 @@ public class UserServiceImpl implements UserService{
 
 <br>
 
+__위의 코드 설명으로는__
+
+1. url값을 환경변수 값으로 받아오는 것으로 설정값은 user-service.yml에 설정해두었다.(git)
+
+```yml
+spring:
+  datasource:
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:mem:testdb
+    username: sa
+    password: '{cipher}AQAQZKGZrGe0uaQfpDk90mzuSy8WrSHHU5S/OCTB0g9NUTSrG7x0p6qnhXb/SPHSm/dm/TjWp+BpyYzj+w7tr8uTpEkSTuvNCWPtDM813R6J7SbO2DWAccwiNp4ZoGc4KLxB2QbLTZeQxEvRPFOKUqKLkSMQQQPh+2Pxrk0QhTSbbPRIP6hmfTDQgHBjL4FkZTYaQSo6/rRDIUJdBoo248GjiBw6FYXLGQn2DgukNiuBZJlCHac7RW4Z3ZBBMV2jIn/dCjS1yJrQjKfRmK4ZRZ/39+5+If+leMwRIgAr/u3J7TeCMKofJOJc23wt+JILb30ap2f+is7Nqgmyp3yvTQM4PVO/wPlf2ewRyhbYWSB7cY7+QPGBFnMpo+D8to7Dzlg='
+token:
+  expiration_time: 86400000
+  secret: '{cipher}AQBz0/LWzW++38OSlEhkxwNSROmThDnC8EqAXqFlQSJy0dAMBYByPuJMeYExEGKhazdH8NWNlAA1Dn1iMCTyQF2AdwUtvtAE2ieyJ/gEv/fJ89rOFAskWw8Gzpp5zLOqqh3JocnTbOwgvcsEs8AtnesUthoHJ+/5f1ii5weBYj7ymqo4PW5Q1uSXY55eVHUZIYhreb1Dn5J9wkTaBTTTSjWJNppzAPZsFSvc8n9SgewWqLRIzoS+BNIL2ctuWrfpTyu/ZNrxiuAKezGXarOhg1k/6IWE/H3lCwZdH5a9EpwTcHTOqTH5fYUUVYxP5EtiD1ZgPN1rpPLXeLtULDCNSWoUyxx5fcbqc+BGUXX6/xtW6gViV2+vqStBdSEWlyh7xu0='
+order_service:
+  url: http://127.0.0.1:8000/order-service/%s/orders
+```
+
+<br>
+
+2. restTemplate의 exchange method를 사용하여 url로 요청하는 방법이다.
+  * exchange(url, method, parameter, response type)순으로 넣는다.
+
+<br>
+
+3. getBody()를 통해 반환받은 데이터에서 body를 꺼내와서 orderList배열에 넣는다.
+
+<br>
+
+##### orderList배열에 잘 들어오는지에 대한 테스트를 해보자.
+
+* 로그인한 유저 ID로 주문을 하나 생성하고 요청하면
+
+사진
+
+<br>
+
+* order-service에서 정상적으로 주문 내역을 가져와서 user-service에 정보를 전달한 것을 확인할 수 있다.
+
+사진
+사진
+
+<br>
+
+#### service 주소를 Microservice name으로 사용하는 방법
+
+<br>
+
+* 위의 방법을 따라해보면 yml 설정 내용에 url의 실제 서버의 ip가 변경될 때마다 변경해주어야하는 단점을 가지고 있다. 이 점을 `서비스명`으로 사용해도 정상 작동되도록 해보자!
+
