@@ -3154,4 +3154,444 @@ public String status(){
 <br>
 
 * health_check 서비스를 실행하면 다음과 같이 로그를 확인할 수 있다.
-* 로그의 내용은 
+* 로그의 내용은 내가 설정한 것 처럼 http://127.0.0.1:8888 에 접근하여 ecommerce라는 이름의 profiles는 default로 접근하여 정보를 가져온다는 것이다.
+
+사진
+
+<br>
+
+* 포스트맨으로 실제 요청시 health_check에서도 설정 정보를 잘 읽어오는 것을 확인할 수 있다.
+
+사진
+
+<br>
+
+__cf. 여기서 중요한 점은 application.yml과 bootstrap.yml 중 서버가 실행했을 때, bootstrap.yml의 설정값을 먼저 읽어온다는 것이다.__
+
+<br>
+
+#### actuator
+
+* 문제는 설정에 변경이 생기면 서버를 재기동 시켜야 적용이 된다는 것인데, 설정값 하나 떄문에 모든 서버를 내렸다가 올리기에는 너무 번거롭다. 그래서 사용하는 방법이 actuator와 bus가 있는데 주로 bus를 사용하지만 actuator를 먼저 살펴보자.
+
+* 우선 user-service의 pom.xml에서 actuator의 의존성을 추가해주고
+
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-actuator</artifactId>
+</dependency>
+```
+
+<br>
+
+* Websecurity에서도 actuator에 대한 요청을 모두 허용으로 변경해주자.
+
+```java
+@Configuration  //다른 bean들 보다 우선순위를 앞으로
+@EnableWebSecurity  //security 어노테이션
+@RequiredArgsConstructor
+public class WebSecurity extends WebSecurityConfigurerAdapter {
+
+...
+    //권한
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        http.csrf().disable();
+        http.authorizeRequests().antMatchers("/actuator/**").permitAll();   //actuator는 모두 허용
+        //http.authorizeRequests().antMatchers("/users/**").permitAll();    //기존 모두 ok
+        http.authorizeRequests().antMatchers("/**")
+            .permitAll()    //ip 설정
+            .and()
+            .addFilter(getAuthenticationFilter());
+
+        http.headers().frameOptions().disable();    //h2 console error 해결을 위해
+    }
+
+}
+```
+
+<br>
+
+* 또한 다음과 같이 application.yml에도 다음과 같이 추가해주자. refresh를 적용해주어야 정보를 새로고침하여 가져온다.
+
+```yml
+management:
+  endpoints:
+    web:
+      exposure:
+        include: refresh, health, beans
+```
+
+<br>
+
+* health를 요청하면 다음과 같이 서버 상태가 나오고
+
+사진
+
+<br>
+
+* beans를 요청하면 다음과 같이 등록된 beans의 값을 확인할 수 있다.
+
+사진
+
+<br>
+
+* 서버의 변경이 잘 되는지 테스트 해보기 위해 ecommerce.yml 파일에 등록된 token을 변경해보자. 아래와 같이 변경하고
+
+사진
+
+<br>
+
+* POST로 아래와 같이 refresh를 요청하면 서버에서 실행 도중에 서버의 설정값을 새로고침하여 가져올 수 있다.
+
+사진
+
+<br>
+
+* 다음과 같이 서버를 재기동하지 않아도 secret 값이 변경된 것을 확인할 수 있다.
+
+사진
+
+<br>
+<br>
+
+## Spring Config - 2 (Gateway 적용)
+
+* apigateway-service pom.xml 의존성 추가
+
+```xml
+<dependency>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-starter-config</artifactId>
+</dependency>
+<dependency>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-starter-bootstrap</artifactId>
+</dependency>
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-actuator</artifactId>
+</dependency>
+```
+
+<br>
+
+* bootstrap.yml 파일을 생성하여 내용을 입력해주자.
+
+```yml
+spring:
+  cloud:
+    config:
+      uri: http://127.0.0.1:8888
+      name: ecommerce
+```
+
+<br>
+
+* application.yml에 config 사용을 위한 설정을 추가해주자. 이번엔 httpstrace 옵션을 추가해보자.
+
+```yml
+management:
+  endpoints:
+    web:
+      exposure:
+        include: refresh, health, beans, httptrace
+```
+
+* httpstrace를 사용하기 위해 application 클래스에 HttpTraceRepository를 반환하는 bean을 등록해주자.
+
+```java
+@SpringBootApplication
+public class GatewayApplication {
+
+    ...
+
+    @Bean
+    public HttpTraceRepository httpTraceRepository(){
+        return new InMemoryHttpTraceRepository();
+    }
+}
+```
+
+<br>
+
+* application.yml에 gateway로 actuator를 사용할 수 있도록 다음과 같이 설정해주자.
+
+```yml
+- id: user-service
+  uri: lb://USER-SERVICE
+  predicates:
+    - Path=/order-service/actuator/**
+    - Method=GET,POST
+  filters:
+    - RemoveRequestHeader=Cookie
+    - RewritePath=/user-service(?<segment>.*), /$\{segment}
+```
+
+<br>
+
+* 서버 실행 후 health를 통해 정상적으로 체크가 가능하다.
+
+사진
+
+<br>
+
+* 그리고 이번에 추가한 httpstrace의 경우 다음과 같이 gateway를 통해 요청한 uri들의 로그들을 확인할 수 있다.
+
+사진
+
+```json
+
+```
+
+<br>
+<br>
+
+## Spring Config - 3 ( profile과 git )
+
+<br>
+
+* 설정 파일은 개발 환경(local, dev, test, prod 등)에 따라 설정값을 나누고 실행할 수 있다. Spring Config 에서도 동일한 기능을 지원하는데 확인해보자.
+
+<br>
+
+* dev와 prod 두개의 파일을 각각 ecommerce-dev, ecommerce-prod로 생성해보자.
+
+```yml
+token:
+  expiration_time: 86400000
+  secret: user_token_dev
+```
+
+```yml
+token:
+  expiration_time: 86400000
+  secret: user_token_prod
+```
+
+<br>
+
+* apigateway-service / user-service 두개의 bootstrap 설정을 다음과 같이 변경하고 로그인에서 token 정보를 불러오는 곳에 Break Point를 걸어두자.
+
+`gateway`
+```yml
+spring:
+  cloud:
+    config:
+      uri: http://127.0.0.1:8888
+      name: ecommerce
+  profiles:
+    active: prod
+```
+
+`user-service`
+```yml
+spring:
+  cloud:
+    config:
+      uri: http://127.0.0.1:8888
+      name: ecommerce
+  profiles:
+    active: dev
+```
+
+사진
+
+<br>
+
+* 다음과 같이 user-service에서 token이 dev 설정으로 불러와지는 것을 확인할 수 있다.
+
+사진
+
+<br>
+
+* gateway도 확인하면 gateway는 dev가 아닌 prod인 것을 확인할 수 있다.
+
+사진
+
+<br>
+
+__Git Repo에서도 연결하여 사용할 수 있는데__
+
+* public repository의 경우 username과 password 정보는 필요 없다.
+
+```yml
+server:
+  port: 8888
+
+spring:
+  application:
+    name: config-service
+  cloud:
+    config:
+      server:
+        git:
+          uri: [git uri]
+          username: [git id]
+          password: [git password]
+```
+
+<br>
+<br>
+
+## Spring Cloud Bus (RabbitMQ)
+
+설치는 MAC용으로 다시 보고 요약하기..
+
+#### 프로젝트에 적용하기
+
+<br>
+
+* Config server의 pom.xml에 각 actuator / bus amqp / bootstrap의 의존성을 추가해주자.
+
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-actuator</artifactId>
+</dependency>
+<dependency>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-starter-bus-amqp</artifactId>
+</dependency>
+<dependency>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-starter-bootstrap</artifactId>
+</dependency>
+```
+
+<br>
+
+* user-service / gateway-service의 pom.xml에도 bus amqp 의존성을 추가해주자.
+
+```xml
+<dependency>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-starter-bus-amqp</artifactId>
+</dependency>
+```
+
+<br>
+
+* config server의 application.yml에 다음과 같이 수정해주자.
+
+```yml
+server:
+  port: 8888
+
+spring:
+  application:
+    name: config-service
+  rabbitmq: #rabbitmq 설정 추가
+    host: 127.0.0.1
+    port: 5672
+    username: guest
+    password: guest
+  cloud:
+    config:
+      server:
+        git:
+          uri: file://C:/2022/msa-config
+
+management: #actuator 설정
+  endpoint:
+    web:
+      exposure:
+        include: health, busrefresh
+```
+
+<br>
+
+* user-service / gateway의 application.yml에도 다음과 같이 설정해주자.
+
+```yml
+  rabbitmq: #rabbitmq 설정 추가
+    host: 127.0.0.1
+    port: 5672
+    username: guest
+    password: guest
+    
+management: #actuator 설정
+  endpoints:
+    web:
+      exposure:
+        include: refresh, health, beans, busrefresh
+```
+
+<br>
+
+__이제 서버들을 모두 실행해주면 로그에 다음과같이 rabbitmq를 사용하며 서버가 실행되는 것을 확인할 수 있다.__
+
+사진
+
+<br>
+
+다시 듣고 요약..
+
+<br>
+<br>
+
+## Microservice 통신 - 1 ( RestTemplate )
+
+### Microservice 통신?
+
+* MSA를 구성하다보면 service간의 통신이 필요할 때가 있다. 예를 들어 유저의 주문 정보를 가져올때는 user-service에서 주문 정보를 가지고 있는게 아니라 order-service에서 정보를 가져와서 user-service에서 반환해줘야하는 경우가 생긴다. 이럴때 Microserivce간 통신이 생기는데 이 경우 어떻게 처리하는지 확인해보자. 이번에는 java에서 자체적으로 제공하는 RestTemplate를 사용해보려고 한다.
+
+<br>
+
+#### user-service에 RestTemplate 등록
+
+* application 클래스에 RestTemplate를 반환하는 bean을 등록해주자.
+
+```java
+@SpringBootApplication
+@EnableDiscoveryClient
+public class UserServiceApplication {
+
+    ...
+    
+    @Bean
+    public RestTemplate getRestTemplate(){
+        return new RestTemplate();
+    }
+}
+```
+
+<br>
+
+* 기존에는 빈 배열을 넣어 반환하던 코드를 아래와 같이 수정해보자.( Service )
+
+```java
+@Service
+@RequiredArgsConstructor
+public class UserServiceImpl implements UserService{
+    private final UserRepository userRepository;
+    private final BCryptPasswordEncoder pwdEncoder;
+    private final RestTemplate restTemplate;
+    private final Environment env;
+    
+    ...
+    
+    @Override
+    public UserDto getUserByUserId(String userId) {
+        UserEntity userEntity = userRepository.findByUserId(userId);
+        if(userEntity == null) throw new UsernameNotFoundException("user name not found!");
+        UserDto userDto = new ModelMapper().map(userEntity, UserDto.class);
+//        List<ResponseOrder> orderList = new ArrayList<>();    //이전에 빈 배열을 반환하던 값
+
+        /* Using as RestTemplate */
+        String orderUrl = String.format(env.getProperty("order_service.url"), userId);	//(1)
+        ResponseEntity<List<ResponseOrder>> orderListResponse =	//(2)
+                restTemplate.exchange(orderUrl, HttpMethod.GET, null, new ParameterizedTypeReference<List<ResponseOrder>>() {
+                });
+        List<ResponseOrder> orderList = orderListResponse.getBody();	//(3)
+
+        userDto.setOrders(orderList);
+
+        return userDto;
+    }
+}
+```
+
+<br>
+
