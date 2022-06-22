@@ -1372,11 +1372,11 @@ __전체 애플리케이션 개요__
 
 ![](/images/39.PNG)
 
-__3.6번사진__
+![](/images/40.PNG)
 
 ## User Service 프로젝트 생성
 
-__주노 사진__
+![](/images/41.PNG)
 
 * 프로젝트 생성 후 @EnableDiscoveryClient를 통해 Eureka Client로 등록시켜준다.
 
@@ -1432,7 +1432,7 @@ public class UserController {
 
 * 다음과 같이 서비스를 실행하여 Eureka에서 서비스를 확인할 수 있다.
 
-__4.11사진 추가__
+![](/images/42.PNG)
 
 <br>
 
@@ -1440,13 +1440,13 @@ __4.11사진 추가__
 
 * 1) Environment 사용
 
-사진
+![](/images/43.PNG)
 
 <br>
 
 * 2) @Value 사용
 
-사진
+![](/images/44.PNG)
 
 <br>
 
@@ -1463,7 +1463,7 @@ h2의 정책 변경으로 1.3.176으로 진행하면 빠르게 진행 가능하�
 
 * Dependency 추가
 
-사진
+![](/images/45.PNG)
 
 <br>
 
@@ -1652,6 +1652,8 @@ spring:
 
 * 테스트
 
+![](/images/46.PNG)
+
 <br>
 
 * 현재는, 실제로 데이터를 전송하면 `Create User!`라는 String만을 반환한다.
@@ -1678,7 +1680,7 @@ public class UserController {
 }
 ```
 
-테스트 사진
+![](/images/47.PNG)
 
 <br>
 
@@ -1756,7 +1758,7 @@ public class UserController {
 
 * 위와 같이 수정하면 아래와 같이 return 하는 데이터들과 201번 코드를 확인할 수 있다.
 
-주노 사진
+![](/images/48.PNG)
 
 <br>
 <br>
@@ -1765,7 +1767,7 @@ public class UserController {
 
 <br>
 
-* security를 위한 pon.xml에 Dependency 추가
+* security를 위한 pom.xml에 Dependency 추가
 
 ```java
 <dependency>
@@ -1870,7 +1872,7 @@ public class UserEntity {
 
 * 아래와 같이 비밀번호가 암호화되어 저장된 것을 확인할 수 있다.
 
-주노 사진
+![](/images/49.PNG)
 
 <br>
 <br>
@@ -2051,6 +2053,8 @@ public class CatalogController {
 }
 ```
 
+<br>
+
 * API Gateway yml 수정
 
 ```yml
@@ -2086,7 +2090,7 @@ spring:
 
 * 결과
 
-주노 사진
+![](/images/50.PNG)
 
 <br>
 <br>
@@ -2357,19 +2361,19 @@ spring:
 
 * Eureka 서버는 아래와 같이 기동되며
 
-주노 사진
+![](/images/51.PNG)
 
 <br>
 
 * 정상적으로 주문이 요청되며
 
-주노 사진
+![](/images/52.PNG)
 
 <br>
 
 * 특정 유저의 주문목록 조회가 가능해졌다.
 
-주노 사진
+![](/images/53.PNG)
 
 <br>
 <br>
@@ -2555,14 +2559,14 @@ __API Gateway 설정 변경__
 * 테스트
   * 아래 사진과 같이 정상적으로 요청된 결과를 받을 수 있고
 
-주노 사진
+![](/images/54.PNG)
 
 <br>
 
 * 테스트
   * security에서 기본 제공되는 login을 통해 POST 요청시 정상 반환되는 것을 확인할 수 있다.
 
-주노 사진
+![](/images/55.PNG)
 
 <br>
 <br>
@@ -2582,13 +2586,13 @@ cf. 서버를 재기동한다면 User의 정보가 날라가므로 `회원가입
 * 디버그 Break Point 찍기
   * AuthenticationFilter 파일에서 두개의 Break Point를 찍었다. attemptAuthentication 인증 요청시 요청이 되는지, successfulAuthentication 로그인 성공시 로그가 찍히는지 확인을 하기 위해 찍었다.
 
-주노 사진
+![](/images/56.PNG)
 
 <br>
 
 * UserServiceImpl에서 loadUserByUsername에도 찍었다. 인증 요청 성공시 데이터를 가져오는데 이 로직을 통해 가져오는지 확인해보자.
 
-주노 사진
+![](/images/57.PNG)
 
 <br>
 
@@ -2600,54 +2604,58 @@ cf. 서버를 재기동한다면 User의 정보가 날라가므로 `회원가입
  
 * 가장 먼저 인증 요청 부분인 AuthenticationFilter의 attemptAuthentication로 실행이 된다. 동작 순서를 살펴보면 가장 먼저 읽어온 request를 통해 RequestLogin 객체를 만들고 해당 객체를 UsernamePasswordAuthenticationToken을 통해 token값으로 변경하여 전달한다.
 
-주노 사진
+![](/images/58.PNG)
 
 <br>
 
 * 정상적으로 로그인 성공 시 UserServiceImpl의 loadUserByUsername를 실행하여 실제 유저가 존재하는지 확인을 한번 더 하고 User객체를 반환한다.
 
-주노 사진
+![](/images/59.PNG)
 
 <br>
 
 * 그 후 AuthenticationFilter의 successfulAuthentication이 실행되며 로그가 찍히고 종료되는데 성공 후에 나는 JWT가 발급되도록 변경하려한다!
 
-주노 사진
+![](/images/60.PNG)
+
+<br>
 
 ##### 2) 아이디를 틀리게 적은 경우
 
 * 아래 사진과 같이 아이디를 틀리게 적으면
 
-주노 사진
+![](/images/61.PNG)
 
 <br>
 
 * security에서 제공하는 AbstractDetailsAuthenticationProvider의 authenticatte 메서드에서 인증 절차가 실행되는데 retrieveUser 메서드를 통해 제공받은 userName의 값과 토큰 값을 전달한다.
 
-사진
+![](/images/62.PNG)
 
 <br>
 
 * 그럼 아이디 값을 통해 UserService에서 검색해보고 당연히 아이디가 존재하지 않기 때문에 Exception이 발생한다.
 
-사진
+![](/images/63.PNG)
 
 <br>
 
 * 이러면 이전에 실행했던 retrieveUser의 catch에 걸리게 되고 UsernameNotFoundException이 걸린다.
 
-ㅈ주사진
+![](/images/64.PNG)
 
 <br>
 
 * authenticate 에서도 catch에 걸리게 되고 디버그로 로그를 찍고 BadCredentialsException 예외를 생성하여
 
-주노사진
+![](/images/65.PNG)
 
 <br>
 
 * 그 후에는 AuthenticationException을 ProviderManager의 authenticate 메서드에서 던지게 된다. 그리고 계속 filter를 타고 처리가 되어지는데
 * 결국 마지막엔 401코드 Unauthorized를 띄운다.
+
+![](/images/66.PNG)
 
 <br>
 
@@ -2655,47 +2663,53 @@ cf. 서버를 재기동한다면 User의 정보가 날라가므로 `회원가입
 
 * 이번엔 비밀번호를 틀리게 적어보자.
 
-주노 사진
+![](/images/67.PNG)
 
 <br>
 
 * 여기까지는 동일하게 진행되며
 
-주노 사진
+![](/images/68.PNG)
 
 <br>
 
 * 이번엔 아이디가 존재하기 때문에 User 객체를 정상적으로 반환한다.
 
-주노 사진
+![](/images/69.PNG)
 
 <br>
 
 * 그 때문에 loadedUser에도 null이 아닌 값이 들어가 있고
 
-주노 사진
+![](/images/70.PNG)
 
 <br>
 
 * 정상적으로 계속 진행된다.
 
-주노 사진
+![](/images/71.PNG)
 
 <br>
 
 * 하지만 additionalAuthenticationChecks 이 메서드를 진행할때
 
-주노 사진
+![](/images/72.PNG)
 
 <br>
 
 * security에서 제공하는 DaoAuthenticationProvider와 additionalAuthenticationChecks에서 다음과 같이 복호화하여 실제 user객체에 담긴 비밀번호와 같은지 확인 작업을 거치게 되어, 비밀번호가 다르므로 디버그 로그를 찍고 BadCredentialsException 예외를 발생시킨다.
 
-주노 사진
+![](/images/73.PNG)
 
 <br>
 
-* 그렇기 때문에 위와 마찬가지로 401코드가 반환되는 것을 확인할 수 있다.
+* 그렇기 때문에 catch에서 AuthenticationException 예외로 던져지며 이후 똑같은 처리가 진행된다.
+
+![](/images/74.PNG)
+
+<br>
+
+* 위와 마찬가지로 401코드가 반환되는 것을 확인할 수 있다.
 
 주노 사진
 
@@ -2773,7 +2787,7 @@ public class UserServiceImpl implements UserService{
 }
 ```
 
-사진
+![](/images/75.PNG)
 
 
 <br>
@@ -2834,13 +2848,13 @@ public class AuthenticationFilter extends UsernamePasswordAuthenticationFilter {
 }
 ```
 
-사진
+![](/images/76.PNG)
 
 <br>
 
 * 반환되는 값의 header 정보에도 token과 userId가 반환되는 것을 확인할 수 있다.
 
-사진
+![](/images/77.PNG)
 
 <br>
 <br>
@@ -2934,6 +2948,8 @@ public class AuthorizationHeaderFilter extends AbstractGatewayFilterFactory<Auth
 }
 ```
 
+<br>
+
 * 또한 아래 yml 파일에서 user-service에서 AuthorizationHeaderFilter 필터를 더 추가해주자.
 ```yml
 ...
@@ -2973,7 +2989,7 @@ token:
 
 * 로그인하여 발급 받은 토큰이 없을때 health-check를 실행시켜보자.
 
-사진
+![](/images/78.PNG)
 
 <br>
 
@@ -2981,34 +2997,39 @@ token:
   * 회원가입을 통해 발급 받은 token을 사용하여 다시 요청해보자.
 * 발급 받은 token 정보를 입력한 뒤 요청하면 다음과 같이 정상적으로 처리됨을 확인할 수 잇다. 
 
-사진
+![](/images/79.PNG)
 
 <br>
 
 * 그럼 해당 로직이 어떻게 진행되는지 확인해보자.
 * api-gateway-service에 작성한 AuthorizationHeaderFilter의 apply()에 요청이 들어오고
 
-사진
+![](/images/80.PNG)
 
 <br>
 
 * 요청한 Header에 Authorization : value가 존재하는지 확인을 먼저 해준다.
 * Bearer type으로 요청했기 때문에 value에 Bearer + toekn으로 값이 넘어오는데 해당 값을 replace()로 처리해주고 isJwtValid()를 통해 유효성을 체크한다.
 
-사진
+![](/images/81.PNG)
 
 <br>
 
 * 넘어온 값은 JWT를 통해 parse해주고 해당 subject를 확인하면 토큰값이 들어있는데 이 값은 내가 token을 만들때 사용했던 userId값이다.
-  * 정말 그런지 확인을 하기위해, login 했을 때 반환된 값을 보면 내가 반환 받은 값과 동일한 값을 확인할 수 있다.
+  
+![](/images/82.PNG)
 
-사진
+<br>
+
+* 정말 그런지 확인을 하기위해, login 했을 때 반환된 값을 보면 내가 반환 받은 값과 동일한 값을 확인할 수 있다.
+
+![](/images/83.PNG)
 
 <br>
 
 * 정상적으로 token 정보를 넘긴 반환값을 받을 수 있다.
 
-사진
+![](/images/84.PNG)
 
 <br>
 <br>
@@ -3034,7 +3055,7 @@ token:
 
 * yml 파일 하나를 생성하고 git으로 관리할 수 있도록 commit 단계까지만 진행해두자.
 
-사진
+![](/images/85.PNG)
 
 <br>
 
@@ -3067,10 +3088,11 @@ spring:
     config:
       server:
         git:
-          uri: file://{폴더경로} #ex)  file://C:/2022/msa-config
+          uri: https://github.com/kimmmmsj/SpringCloud
+          username: kimmmmsj
+          password: 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
 ```
 
-<<나중에 바꾸기>>
 
 <br>
 
@@ -3156,13 +3178,13 @@ public String status(){
 * health_check 서비스를 실행하면 다음과 같이 로그를 확인할 수 있다.
 * 로그의 내용은 내가 설정한 것 처럼 http://127.0.0.1:8888 에 접근하여 ecommerce라는 이름의 profiles는 default로 접근하여 정보를 가져온다는 것이다.
 
-사진
+![](/images/86.PNG)
 
 <br>
 
 * 포스트맨으로 실제 요청시 health_check에서도 설정 정보를 잘 읽어오는 것을 확인할 수 있다.
 
-사진
+![](/images/87.PNG)
 
 <br>
 
@@ -3227,31 +3249,31 @@ management:
 
 * health를 요청하면 다음과 같이 서버 상태가 나오고
 
-사진
+![](/images/88.PNG)
 
 <br>
 
 * beans를 요청하면 다음과 같이 등록된 beans의 값을 확인할 수 있다.
 
-사진
+![](/images/89.PNG)
 
 <br>
 
 * 서버의 변경이 잘 되는지 테스트 해보기 위해 ecommerce.yml 파일에 등록된 token을 변경해보자. 아래와 같이 변경하고
 
-사진
+![](/images/90.PNG)
 
 <br>
 
 * POST로 아래와 같이 refresh를 요청하면 서버에서 실행 도중에 서버의 설정값을 새로고침하여 가져올 수 있다.
 
-사진
+![](/images/91.PNG)
 
 <br>
 
 * 다음과 같이 서버를 재기동하지 않아도 secret 값이 변경된 것을 확인할 수 있다.
 
-사진
+![](/images/92.PNG)
 
 <br>
 <br>
@@ -3333,16 +3355,83 @@ public class GatewayApplication {
 
 * 서버 실행 후 health를 통해 정상적으로 체크가 가능하다.
 
-사진
+![](/images/93.PNG)
 
 <br>
 
 * 그리고 이번에 추가한 httpstrace의 경우 다음과 같이 gateway를 통해 요청한 uri들의 로그들을 확인할 수 있다.
 
-사진
+![](/images/94.PNG)
 
 ```json
-
+{
+    "traces": [
+        {
+            "timestamp": "2022-03-08T21:04:58.756202Z",
+            "principal": null,
+            "session": null,
+            "request": {
+                "method": "GET",
+                "uri": "http://localhost:8000/user-service/actuator/health",
+                "headers": {
+                    "Accept": [
+                        "*/*"
+                    ],
+                    "Cache-Control": [
+                        "no-cache"
+                    ],
+                    "User-Agent": [
+                        "PostmanRuntime/7.29.0"
+                    ],
+                    "Connection": [
+                        "keep-alive"
+                    ],
+                    "Postman-Token": [
+                        "2a4de739-a121-48e3-be3e-1a5f9164868b"
+                    ],
+                    "Host": [
+                        "localhost:8000"
+                    ],
+                    "Accept-Encoding": [
+                        "gzip, deflate, br"
+                    ]
+                },
+                "remoteAddress": null
+            },
+            "response": {
+                "status": 200,
+                "headers": {
+                    "transfer-encoding": [
+                        "chunked"
+                    ],
+                    "Cache-Control": [
+                        "no-cache, no-store, max-age=0, must-revalidate"
+                    ],
+                    "X-Content-Type-Options": [
+                        "nosniff"
+                    ],
+                    "Pragma": [
+                        "no-cache"
+                    ],
+                    "Expires": [
+                        "0"
+                    ],
+                    "X-XSS-Protection": [
+                        "1; mode=block"
+                    ],
+                    "Date": [
+                        "Tue, 08 Mar 2022 21:04:58 GMT"
+                    ],
+                    "Content-Type": [
+                        "application/vnd.spring-boot.actuator.v3+json"
+                    ]
+                }
+            },
+            "timeTaken": 14
+        },
+        ...
+    ]
+}
 ```
 
 <br>
@@ -3396,19 +3485,22 @@ spring:
     active: dev
 ```
 
-사진
+![](/images/95.PNG)
+
+
 
 <br>
 
 * 다음과 같이 user-service에서 token이 dev 설정으로 불러와지는 것을 확인할 수 있다.
 
-사진
+![](/images/96.PNG)
+
 
 <br>
 
 * gateway도 확인하면 gateway는 dev가 아닌 prod인 것을 확인할 수 있다.
-
-사진
+![](/images/97.PNG)
+![](/images/98.PNG)
 
 <br>
 
