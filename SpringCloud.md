@@ -3529,10 +3529,28 @@ spring:
 
 ## Spring Cloud Bus (RabbitMQ)
 
-설치는 MAC용으로 다시 보고 요약하기..
+Spring Config를 이용하면서 장점은 모든 서비스의 설정을 하나의 서버에서 관리할 수 있다. 였지만 단점으로는 서버의 설정 값이 변경되면 모든 서버를 재부팅하거나 모든 서버의 refresh를 주어야 설정을 변경할 수 있었다. 그런 귀찮은 점을 개선하기 위한 기술이 Spring Cloud Bus인데 또 이 기술을 사용하기 위해서는 AMQP(Advanced Message Queuing Protocol)이라는 메세지 큐잉 프로토콜을 사용하여야한다. 유명한 프로젝트로는 RabbitMQ, Kafka 등이 있지만 대용량 처리나 속도보다는 정확성이 더 중요한 설정이니 RabbitMQ를 사용하여 진행해보려고 한다.
+
+* $ brew update 
+* $ brew install rabbitmq
+* /opt/homebrew/opt/rabbitmq/sbin/rabbitmq-server
+
+위 단계를 거쳐 brew에 rabbitmq를 설치하고 성공적으로 실행이 되었다면
+
+http://127.0.0.1:15672
+에 접속해보자.
+
+* 아래와 같은 화면을 확인할 수 있고, 아이디와 비밀번호는 guest로 기본 제공한다.
+![](/images/99.PNG)
+
+* 아래와같은 화면을 확인했다면 성공!
+
+![](/images/100.PNG)
+
+<br>
 
 #### 프로젝트에 적용하기
-
+ 
 <br>
 
 * Config server의 pom.xml에 각 actuator / bus amqp / bootstrap의 의존성을 추가해주자.
@@ -3612,9 +3630,31 @@ management: #actuator 설정
 
 <br>
 
+* 또한 현재 rabbitmq와 spring-boot 버전의 문제로 인하여 pom.xml에서 아래와 같이 버전을 수정해주자.
+* 2.5.11
+
+```xml
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>2.5.11</version>
+        <relativePath/> <!-- lookup parent from repository -->
+    </parent>
+```
+
+* 2020.0.5
+```xml
+    <properties>
+        <java.version>11</java.version>
+        <spring-cloud.version>2020.0.5</spring-cloud.version>
+    </properties>
+```
+
+<br>
+
 __이제 서버들을 모두 실행해주면 로그에 다음과같이 rabbitmq를 사용하며 서버가 실행되는 것을 확인할 수 있다.__
 
-사진
+![](/images/101.PNG)
 
 <br>
 
