@@ -3658,7 +3658,72 @@ __이제 서버들을 모두 실행해주면 로그에 다음과같이 rabbitmq�
 
 <br>
 
-다시 듣고 요약..
+#### 이제 위의 rabiitmq 설치를 기반으로 테스트를 진행해보자.
+
+<br>
+
+Git에 application.yml 설정 파일을 하나 추가해주고 아래와 같이 작성해주자.
+```yml
+token:
+  expiration_time: 86400000
+  secret: application_token
+```
+
+<br>
+
+* 또한 apigateway-service / user-service의 bootstrap.yml 파일 내용을 아래와 같이 바꾼 후에 재실행 해주자.
+
+```yml
+spring:
+  cloud:
+    config:
+      uri: http://127.0.0.1:8888
+      name: config-service
+#  profiles:
+#    active: dev
+```
+
+* 그 후에 기존에 만들어 두었던 health_check를 사용하면 아래와 같이
+
+![](/images/102.PNG)
+
+<br>
+
+* 그리고 이제 정말 테스트를 하기 위해 Git에 새로 생성했던 application.yml 파일의 내용을 아래와 같이 수정해보자.
+
+```yml
+token:
+  expiration_time: 86400000
+  secret: application_token_change_1
+```
+
+* 변경 후 http://127.0.0.1:8888/config-service/default 에 접근해보면 변경된 내용이 바로 반영된 것을 확인할 수 있다.
+
+![](/images/103.PNG)
+
+* 그러나 gateway token 유효성 체크하는 코드에 Break Point를 걸어서 확인해보면 아래와 같이 실제 서비스에는 변경된 토큰 값이 반영되지 않은 것을 확인할 수 있다.
+
+![](/images/104.PNG)
+
+* 실제 서비스에도 적용을 시키기 위해 busrefresh를 사용해보자! Postman에서 
+* http://127.0.0.1:8000/user-service/actuator/busrefresh
+* 해당 코드를 POST로 아래와 같이 실해하면 204로 정상 반환된 것을 확인할 수 있다.
+* 즉, user-service에만 전달한 busrefresh를 통해 모든 서비스에 자동으로 refresh가 전달되었음을 확인할 수 있다.
+
+![](/images/105.PNG)
+
+<br>
+
+* 더 정확히 확인하기 위해 user-service에서 사용되는 로그인 요청이 token 값이 변경된 값으로 잘 바뀌었고
+
+![](/images/106.PNG)
+
+<br>
+
+* gateway에서 사용되는 token값도 잘 바뀐 것을 확인할 수 있다.
+
+
+![](/images/107.PNG)
 
 <br>
 <br>
@@ -3760,14 +3825,15 @@ order_service:
 
 * 로그인한 유저 ID로 주문을 하나 생성하고 요청하면
 
-사진
+![](/images/108.PNG)
 
 <br>
 
 * order-service에서 정상적으로 주문 내역을 가져와서 user-service에 정보를 전달한 것을 확인할 수 있다.
 
-사진
-사진
+![](/images/109.PNG)
+
+![](/images/110.PNG)
 
 <br>
 
@@ -3789,7 +3855,7 @@ order_service:
 
 <br>
 
-* 기존에 사용하고 있던 user-service의 application 클래스에서 RestTemplate에 @LoadBalanced만 추가해주면 된다.
+* 기존에 사용하고 있던 user-service의 application 클래스에서 RestTemplate에 `@LoadBalanced`만 추가해주면 된다.
 
 ```java
 @SpringBootApplication
@@ -3920,7 +3986,7 @@ public class UserServiceImpl implements UserService{
 
 * 실행해보면 RestTemplate와 동일한 결과를 가져오는 것을 확인할 수 있다.
 
-사진
+![](/images/111.PNG)
 
 <br>
 
@@ -3964,27 +4030,152 @@ public class UserServiceApplication {
 
 * 그 후에 실행하면 다음과 같이 Debug로 찍혀나오는 로그들을 확인할 수 있다.
 
-사진
+![](/images/112.PNG)
 
 <br>
 
 #### FeignClient 예외처리
 
+* 우선 일부러 에러를 내기위해 요청 URL값을 404가 뜨도록 틀리게 적어보자.
+
+```java
+@FeignClient(name = "order-service")    //microservice name
+public interface OrderServiceClient {
+
+    @GetMapping("/order-service/{userId}/orders_error")
+    List<ResponseOrder> getOrders(@PathVariable String userId);
+}
+```
+
+<br>
+
+* 요청을 하게 되면 다음과 같이 로그에 에러가 찍혀나오며
+
+![](/images/113.PNG)
+
+<br>
+
+* 서비스 반환값으로는 주문 정보를 제외하고는 모든 값이 찍혀서 정상 반환된다.
+
+![](/images/114.PNG)
+
+<br>
+
+```
+에러가 발생했는데 에러로 표시하지 않고 처리한 이유는 user-service 자체적인 에러가 아닌 order-service의 에러일 경우 user-service에서 에러가 반환되는것이 아닌 반환할 수 있는 데이터를 모두 반환하고 에러가 난 데이터는 따로 처리하는 방식으로 처리하는 것이 옳은 방향성이다.
+```
+
+<br>
+
+__ErrorDecoder 구현__
+
+* ErrorDecoder는 FeignClient에서 에러가 발생했을 때 핸들링을 좀 더 간단하게 해줄 수 있다.
+* 패키지를 만들고 다음 클래스를 생성하여 FeignClient에서 제공하는 ErrorDecoder를 상속받아 구현해주자.
+
+```java
+public class FeignErrorDecoder implements ErrorDecoder {
+    @Override
+    public Exception decode(String methodKey, Response response) {
+        switch(response.status()){
+            case 400 :
+                break;
+            case 404 :
+                if (methodKey.contains("getOrders")) {    //메서드명
+                    return new ResponseStatusException(HttpStatus.valueOf(response.status()),
+                            "User orders is empty."
+                    );
+                }
+                break;
+            default:
+                return new Exception(response.reason());
+        }
+
+        return null;
+    }
+}
+```
+
+<br>
+
+* Bean으로 등록해주자.
+
+```java
+@SpringBootApplication
+@EnableDiscoveryClient
+@EnableFeignClients
+public class UserServiceApplication {
+
+    ...
 
 
+    @Bean
+    public FeignErrorDecoder getFeignErrorDecoder(){
+        return new FeignErrorDecoder();
+    }
+}
+```
 
+<br>
 
+* try catch를 지우고 기존의 방식대로 다시 요청하도록 수정해주자.(UserServiceImpl)
 
+```java
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class UserServiceImpl implements UserService{
+    ...
 
+    @Override
+    public UserDto getUserByUserId(String userId) {
+        UserEntity userEntity = userRepository.findByUserId(userId);
+        if(userEntity == null) throw new UsernameNotFoundException("user name not found!");
+        UserDto userDto = new ModelMapper().map(userEntity, UserDto.class);
+//        List<ResponseOrder> orderList = new ArrayList<>();    //이전에 빈 배열을 반환하던 값
 
+        /* Using as RestTemplate */
+//        String orderUrl = String.format(env.getProperty("order_service.url"), userId);
+//        ResponseEntity<List<ResponseOrder>> orderListResponse =
+//                restTemplate.exchange(orderUrl, HttpMethod.GET, null, new ParameterizedTypeReference<List<ResponseOrder>>() {
+//                });
+//        List<ResponseOrder> orderList = orderListResponse.getBody();
 
+        /* Using as FeignClient */
+        //List<ResponseOrder> orderList = orderServiceClient.getOrders(userId);
 
+        /* FeignClient exception handling*/
+//        List<ResponseOrder> orderList = null;
+//        try {
+//            orderList = orderServiceClient.getOrders(userId);
+//        }catch (FeignException e){
+//            log.error(e.getMessage());
+//        }
 
+        List<ResponseOrder> orderList = orderServiceClient.getOrders(userId);
+        userDto.setOrders(orderList);
 
+        return userDto;
+    }
 
+}
+```
 
+<br>
 
+* Break Point를 통해 getOrders가 포함된 것을 확인할 수 있으며
 
+![](/images/115.PNG)
+
+<br>
+
+* 다음과같이 에러메세지를 컨트롤했다. 이 핸들링을 통해 알맞게 반환하도록 변경해주면 될 것 같다.
+
+![](/images/116.PNG)
+
+<br>
+<br>
+
+## Kafka Producer, Consumer
 
 
 
